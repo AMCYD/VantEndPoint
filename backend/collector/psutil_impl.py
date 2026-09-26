@@ -1,95 +1,52 @@
-import psutil
 from typing import List, Dict, Any
-from .base import ProcessCollector, NetworkCollector, SystemCollector, ServiceCollector
+from .base import (
+    ProcessCollector,
+    NetworkCollector,
+    SystemCollector,
+    ServiceCollector,
+    UserCollector,
+    PersistenceCollector,
+    SysmonCollector,
+)
+from .windows_native import WindowsNativeCollector
+from .sysmon import WindowsSysmonCollector
+from .persistence import WindowsPersistenceCollector
 
 class PsutilProcessCollector(ProcessCollector):
     def get_processes(self) -> List[Dict[str, Any]]:
-        processes = []
-        for p in psutil.process_iter(['pid', 'name', 'username', 'cpu_percent', 'memory_percent']):
-            try:
-                processes.append(p.info)
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                pass
-        return processes
+        return WindowsNativeCollector.get_processes()
 
     def get_process_details(self, pid: int) -> Dict[str, Any]:
-        try:
-            p = psutil.Process(pid)
-            with p.oneshot():
-                return {
-                    'pid': p.pid,
-                    'name': p.name(),
-                    'exe': p.exe(),
-                    'cmdline': p.cmdline(),
-                    'username': p.username(),
-                    'status': p.status(),
-                    'cpu_percent': p.cpu_percent(),
-                    'memory_info': p.memory_info()._asdict(),
-                    'num_threads': p.num_threads(),
-                    'connections': [c._asdict() for c in p.connections()]
-                }
-        except Exception as e:
-            return {'error': str(e)}
+        return WindowsNativeCollector.get_process_details(pid)
+
 
 class PsutilNetworkCollector(NetworkCollector):
     def get_connections(self) -> List[Dict[str, Any]]:
-        connections = []
-        try:
-            for c in psutil.net_connections(kind='all'):
-                connections.append({
-                    'fd': c.fd,
-                    'family': c.family,
-                    'type': c.type,
-                    'laddr': c.laddr._asdict() if c.laddr else None,
-                    'raddr': c.raddr._asdict() if c.raddr else None,
-                    'status': c.status,
-                    'pid': c.pid
-                })
-        except Exception as e:
-            pass
-        return connections
+        return WindowsNativeCollector.get_connections()
+
 
 class PsutilSystemCollector(SystemCollector):
     def get_system_info(self) -> Dict[str, Any]:
-        return {
-            'cpu_count': psutil.cpu_count(logical=True),
-            'cpu_percent': psutil.cpu_percent(interval=1),
-            'virtual_memory': psutil.virtual_memory()._asdict(),
-            'disk_usage': psutil.disk_usage('/')._asdict()
-        }
+        return WindowsNativeCollector.get_system_info()
+
 
 class PsutilServiceCollector(ServiceCollector):
     def get_services(self) -> List[Dict[str, Any]]:
-        services = []
-        if hasattr(psutil, 'win_service_iter'):
-            for s in psutil.win_service_iter():
-                try:
-                    info = s.as_dict()
-                    services.append({
-                        'name': info.get('name'),
-                        'display_name': info.get('display_name'),
-                        'status': info.get('status'),
-                        'start_type': info.get('start_type'),
-                        'pid': info.get('pid'),
-                        'binpath': info.get('binpath'),
-                        'username': info.get('username')
-                    })
-                except Exception:
-                    pass
-        return services
+        return WindowsNativeCollector.get_services()
 
-class PsutilUserCollector:
+
+class PsutilUserCollector(UserCollector):
     def get_users(self) -> List[Dict[str, Any]]:
-        users = []
-        try:
-            for u in psutil.users():
-                users.append({
-                    'name': u.name,
-                    'terminal': u.terminal,
-                    'host': u.host,
-                    'started': u.started,
-                    'pid': u.pid
-                })
-        except Exception:
-            pass
-        return users
+        return WindowsNativeCollector.get_users()
+
+
+class PsutilPersistenceCollector(PersistenceCollector):
+    def get_persistence_items(self) -> List[Dict[str, Any]]:
+        collector = WindowsPersistenceCollector()
+        return collector.get_persistence_items()
+
+
+class PsutilSysmonCollector(SysmonCollector):
+    def get_sysmon_events(self, max_events: int = 100, event_id: int = None) -> List[Dict[str, Any]]:
+        collector = WindowsSysmonCollector()
+        return collector.get_sysmon_events(max_events=max_events, event_id=event_id)

@@ -8,11 +8,17 @@
   --color-brand-900: #0c4a6e;
   
   --color-cyber-dark: #050a14;
-  --color-cyber-panel: #0d1525;
-  --color-cyber-border: #1e293b;
+  --color-cyber-panel: #0b1326;
+  --color-cyber-surface: #111e38;
+  --color-cyber-border: #1e2d4d;
   --color-cyber-accent: #00f0ff;
+  --color-cyber-green: #10b981;
+  --color-cyber-yellow: #f59e0b;
+  --color-cyber-red: #ef4444;
+  --color-cyber-purple: #8b5cf6;
   
-  --font-sans: "Inter", sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 :root {
@@ -29,13 +35,55 @@ body {
   min-height: 100vh;
 }
 
-/* AG Grid Dark Theme Overrides */
-.ag-theme-alpine-dark {
-  --ag-background-color: #0d1525;
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #050a14;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e2d4d;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00f0ff;
+}
+
+/* AG Grid Cyber Dark Theme Overrides */
+.ag-theme-alpine-dark,
+.ag-theme-alpine,
+.ag-theme-quartz-dark {
+  --ag-background-color: #0b1326;
   --ag-header-background-color: #050a14;
-  --ag-border-color: #1e293b;
-  --ag-odd-row-background-color: rgba(255, 255, 255, 0.02);
-  --ag-row-hover-color: rgba(0, 240, 255, 0.05);
+  --ag-border-color: #1e2d4d;
+  --ag-row-border-color: #162440;
+  --ag-odd-row-background-color: rgba(255, 255, 255, 0.015);
+  --ag-row-hover-color: rgba(0, 240, 255, 0.07);
   --ag-header-foreground-color: #94a3b8;
   --ag-foreground-color: #e2e8f0;
+  --ag-selected-row-background-color: rgba(0, 240, 255, 0.12);
+  --ag-font-family: var(--font-sans);
+  --ag-font-size: 13px;
+  --ag-grid-size: 6px;
+  --ag-header-height: 38px;
+  --ag-row-height: 36px;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid #1e2d4d;
+}
+
+.ag-header-cell-label {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: rgba(11, 19, 38, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid #1e2d4d;
 }
