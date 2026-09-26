@@ -38,5 +38,5 @@ echo Swagger UI:  http://127.0.0.1:8000/api/docs/
 echo.
 echo Both servers are active in the background of this window.
 echo Run Stop_VantEndpoint.bat or close this window to shutdown.
-echo ===================================================
+echo ===================================================aat
 pause
