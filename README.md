@@ -2,7 +2,7 @@
 
 Endpoint Investigation, System Monitoring, and Security Analysis Platform.
 
-VantEndpoint is a lightweight EDR/DFIR tool designed to provide deep visibility into local endpoints. It allows Security Analysts, SOC teams, and Incident Responders to investigate processes, network connections, persistence mechanisms, and system behavior.
+VantEndpoint is an EDR/DFIR tool designed to provide deep visibility into local endpoints. It allows Security Analysts, SOC teams, and Incident Responders to investigate processes, network connections, persistence mechanisms, and system behavior.
 
 ## Folder Structure
 
