@@ -1,3 +1,6 @@
+<p align="left">
+  <img src="images/VantMon.png" alt="VantMon Logo" width="400" hight="400"/>
+</p>
 # VantEndpoint
 
 Endpoint Investigation, System Monitoring, and Security Analysis Platform.
