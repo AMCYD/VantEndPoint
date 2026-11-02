@@ -1,4 +1,4 @@
-<p align="left">
+<p align="center">
   <img src="/frontend/VantMon.png" alt="VantMon Logo" width="400" hight="400"/>
 </p>
 # VantEndpoint
