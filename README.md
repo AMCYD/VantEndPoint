@@ -1,6 +1,7 @@
 <p align="center">
   <img src="/frontend/VantMon.png" alt="VantMon Logo" width="400" hight="400"/>
 </p>
+
 ## VantMon
 
 Endpoint Investigation, System Monitoring, and Security Analysis Platform.
