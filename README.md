@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="/frontend/VantMon.png" alt="VantMon Logo" width="400" hight="400"/>
+  <img src="/frontend/VantMon.png" alt="VantMon Logo" width="500" hight="400"/>
 </p>
 
 ## VantMon
