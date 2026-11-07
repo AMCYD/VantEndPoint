@@ -1,332 +1,486 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { 
-  ShieldAlert, 
-  Activity, 
-  Network, 
-  Key, 
-  TerminalSquare, 
-  Cpu, 
-  AlertTriangle, 
-  CheckCircle2, 
-  ArrowUpRight,
-  RefreshCw,
-  HardDrive,
-  Database
+import {
+  Activity, Network, ShieldAlert, ServerCog, Settings, Database,
+  Users, RefreshCw, Search, Cpu, HardDrive, MemoryStick, Clock,
+  CheckCircle, XCircle, AlertTriangle, Zap, Globe, Key, FileText,
+  BarChart3, ChevronRight, Wifi, TerminalSquare, Monitor, Hash,
+  TrendingUp, TrendingDown, Minus, Copy, ExternalLink, Shield,
 } from "lucide-react";
-import { InvestigationService, ThreatIntelService, ProcessItem, NetworkItem, SystemInfo } from "@/services/api";
+import { InvestigationService } from "@/services/api";
 
-export default function Dashboard() {
-  const [loading, setLoading] = useState(true);
-  const [processes, setProcesses] = useState<ProcessItem[]>([]);
-  const [network, setNetwork] = useState<NetworkItem[]>([]);
-  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
-  const [threatStats, setThreatStats] = useState<any>({ total_iocs: 0, matched_threats: 0 });
-  const [scanning, setScanning] = useState(false);
-  const [scanResult, setScanResult] = useState<string | null>(null);
+/* ─── tiny helpers ─── */
+const gb = (b: number) => b ? (b / 1024 ** 3).toFixed(1) : "—";
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [procs, nets, sys, stats] = await Promise.all([
-        InvestigationService.getProcesses(),
-        InvestigationService.getNetworkConnections(),
-        InvestigationService.getSystemInfo(),
-        ThreatIntelService.getStats(),
-      ]);
-      setProcesses(procs);
-      setNetwork(nets);
-      setSystemInfo(sys);
-      setThreatStats(stats);
-    } catch (err) {
-      console.error("Dashboard fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
+function PulsingDot({ color }: { color: "green" | "red" | "amber" | "blue" }) {
+  const map = {
+    green: "bg-emerald-400 shadow-emerald-500/60",
+    red:   "bg-red-400 shadow-red-500/60",
+    amber: "bg-amber-400 shadow-amber-500/60",
+    blue:  "bg-blue-400 shadow-blue-500/60",
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleQuickScan = async () => {
-    setScanning(true);
-    setScanResult(null);
-    try {
-      const result = await ThreatIntelService.scanCurrentEndpoint();
-      setScanResult(`Scan complete! ${result.total_scanned} artifacts scanned. Threat Score: ${result.threat_score}/100.`);
-    } catch (err: any) {
-      setScanResult(`Scan failed: ${err.message}`);
-    } finally {
-      setScanning(false);
-    }
-  };
-
-  const suspiciousProcesses = processes.filter((p) => (p.threat_score || 0) > 40 || (p.anomaly_flags && p.anomaly_flags.length > 0));
-  const externalConnections = network.filter((n) => n.is_external);
-
-  const ramUsedGb = systemInfo?.virtual_memory?.total 
-    ? ((systemInfo.virtual_memory.total * (systemInfo.virtual_memory.percent / 100)) / (1024 ** 3)).toFixed(1) 
-    : "8.5";
-  const ramTotalGb = systemInfo?.virtual_memory?.total 
-    ? (systemInfo.virtual_memory.total / (1024 ** 3)).toFixed(1) 
-    : "16.0";
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-cyber-border pb-5">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <ShieldAlert className="text-cyber-accent" size={26} />
-            Endpoint Security Command Center
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Real-time host monitoring, behavioral telemetry & automated threat mitigation.
-          </p>
-        </div>
+    <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 shadow-[0_0_8px_2px] ${map[color]}`} />
+  );
+}
 
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={handleQuickScan}
-            disabled={scanning}
-            className="flex items-center space-x-2 text-xs font-semibold px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-md shadow-md transition-all disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={scanning ? "animate-spin" : ""} />
-            <span>{scanning ? "Scanning Artifacts..." : "Run EDR Threat Scan"}</span>
-          </button>
-          <button
-            onClick={fetchData}
-            title="Refresh Telemetry"
-            className="p-2 bg-cyber-surface hover:bg-slate-800 text-slate-300 rounded-md border border-cyber-border transition-colors"
-          >
-            <RefreshCw size={16} className={loading ? "animate-spin text-cyber-accent" : ""} />
-          </button>
+/* ─── Stat card (like rConfig) ─── */
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  subtitle?: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  accent?: boolean; /* amber gradient highlight */
+  trend?: "up" | "down" | "flat";
+  link?: string;
+}
+
+function StatCard({ title, value, subtitle, icon, iconBg, accent, trend, link }: StatCardProps) {
+  const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus;
+  const trendColor = trend === "up" ? "text-red-400" : trend === "down" ? "text-emerald-400" : "text-slate-500";
+
+  const inner = (
+    <div className={`relative rounded-xl border p-4 flex flex-col gap-2 overflow-hidden transition-all hover:scale-[1.01] cursor-pointer ${
+      accent
+        ? "border-amber-600/60 bg-gradient-to-br from-amber-600 via-orange-500 to-amber-700 text-white shadow-lg shadow-amber-900/40"
+        : "border-cyber-border bg-cyber-panel hover:border-cyber-border/80"
+    }`}>
+      {/* top row */}
+      <div className="flex items-start justify-between">
+        <p className={`text-[11px] font-medium uppercase tracking-wider ${accent ? "text-amber-100" : "text-slate-400"}`}>
+          {title}
+        </p>
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${accent ? "bg-white/20" : iconBg}`}>
+          {icon}
         </div>
       </div>
-
-      {scanResult && (
-        <div className="bg-cyan-950/50 border border-cyan-500/50 text-cyan-200 text-xs p-3 rounded-lg flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <CheckCircle2 size={16} className="text-cyan-400" />
-            <span>{scanResult}</span>
-          </div>
-          <button onClick={() => setScanResult(null)} className="text-cyan-400 hover:text-cyan-200 font-bold ml-4">✕</button>
+      {/* value */}
+      <p className={`text-2xl font-bold font-mono leading-none ${accent ? "text-white" : "text-slate-100"}`}>
+        {value}
+      </p>
+      {/* subtitle */}
+      {subtitle && (
+        <div className="flex items-center gap-1.5">
+          <TrendIcon size={11} className={trendColor} />
+          <p className={`text-[11px] ${accent ? "text-amber-100" : "text-slate-500"}`}>{subtitle}</p>
         </div>
       )}
+    </div>
+  );
 
-      {/* Top Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Risk Score */}
-        <div className="bg-cyber-dark/80 border border-cyber-border rounded-lg p-5 flex flex-col justify-between shadow-lg">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Overall Threat Level</span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-red-950/60 text-red-400 border border-red-800">
-              HIGH RISK
+  return link ? <Link href={link}>{inner}</Link> : <div>{inner}</div>;
+}
+
+/* ─── Quick Action pill ─── */
+function QAction({ href, dot, label, sublabel }: { href: string; dot: string; label: string; sublabel: string }) {
+  return (
+    <Link href={href} className="flex items-center gap-2.5 p-3 rounded-lg border border-cyber-border bg-cyber-surface/30 hover:bg-cyber-surface hover:border-cyber-accent/40 transition-all group">
+      <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dot}`} />
+      <div className="min-w-0">
+        <p className="text-[12px] font-semibold text-slate-100 group-hover:text-cyber-accent transition-colors">{label}</p>
+        <p className="text-[10px] text-slate-500 truncate">{sublabel}</p>
+      </div>
+    </Link>
+  );
+}
+
+/* ─── InfoRow (System Info style) ─── */
+function InfoRow({ icon, label, value, mono = true }: { icon: React.ReactNode; label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-center justify-between py-2.5 border-b border-cyber-border/50 last:border-0 group">
+      <div className="flex items-center gap-2.5 text-slate-400">
+        <span className="w-5 flex-shrink-0 flex items-center justify-center">{icon}</span>
+        <span className="text-[12px]">{label}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className={`text-[12px] text-slate-100 ${mono ? "font-mono" : ""} truncate max-w-[180px]`}>{value}</span>
+        <button
+          onClick={() => navigator.clipboard?.writeText(value).catch(() => {})}
+          className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-cyber-accent"
+        >
+          <Copy size={10} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Health row ─── */
+function HealthRow({ icon, label, value, dot, sublabel }: { icon: React.ReactNode; label: string; value: string; dot: "green" | "red" | "amber" | "blue"; sublabel?: string }) {
+  return (
+    <div className="flex items-center justify-between py-2.5 border-b border-cyber-border/50 last:border-0">
+      <div className="flex items-center gap-2.5 text-slate-400">
+        <span className="w-5 flex-shrink-0 flex items-center justify-center">{icon}</span>
+        <div>
+          <span className="text-[12px]">{label}</span>
+          {sublabel && <p className="text-[10px] text-slate-600">{sublabel}</p>}
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-[12px] font-mono text-slate-200">{value}</span>
+        <PulsingDot color={dot} />
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────── Page ─────────────────────────── */
+export default function DashboardPage() {
+  const [sys, setSys]   = useState<any>(null);
+  const [procs, setProcs] = useState<any[]>([]);
+  const [nets, setNets]   = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [online, setOnline]   = useState<boolean | null>(null);
+  const [lastRefresh, setLastRefresh] = useState(new Date());
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [s, p, n] = await Promise.all([
+        InvestigationService.getSystemInfo(),
+        InvestigationService.getProcesses(),
+        InvestigationService.getNetworkConnections(),
+      ]);
+      setSys(s);
+      setProcs(Array.isArray(p) ? p : []);
+      setNets(Array.isArray(n) ? n : []);
+      setOnline(true);
+    } catch {
+      setOnline(false);
+    } finally {
+      setLoading(false);
+      setLastRefresh(new Date());
+    }
+  }, []);
+
+  useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load]);
+
+  /* derived */
+  const cpu      = sys?.cpu_percent ?? 0;
+  const ram      = sys?.virtual_memory?.percent ?? 0;
+  const disk     = sys?.disk_usage?.percent ?? 0;
+  const ramTotal = gb(sys?.virtual_memory?.total ?? 0);
+  const ramUsed  = gb(sys?.virtual_memory?.used  ?? 0);
+  const diskTotal= gb(sys?.disk_usage?.total     ?? 0);
+  const cores    = sys?.cpu_count    ?? "—";
+  const hostname = sys?.hostname     ?? "VANT-ENDPOINT";
+  const osName   = sys?.os_name      ?? "Windows";
+  const bootTime = sys?.boot_time    ?? "—";
+  const sysmon   = sys?.sysmon_installed ?? false;
+  const procCnt  = procs.length;
+  const netCnt   = nets.length;
+
+  /* top 5 processes by cpu or first 5 */
+  const topProcs = [...procs].sort((a, b) => (b.cpu_percent ?? 0) - (a.cpu_percent ?? 0)).slice(0, 5);
+  /* first 5 established connections */
+  const topNets  = nets.filter(c => c.status === "ESTABLISHED").slice(0, 5);
+
+  return (
+    <div className="space-y-4 pb-6">
+
+      {/* ── Top bar ── */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-base font-bold text-slate-100">Dashboard</h1>
+          <div className="flex items-center gap-1.5">
+            <PulsingDot color={online ? "green" : online === false ? "red" : "amber"} />
+            <span className="text-[11px] text-slate-500">
+              {online === null ? "Connecting…" : online ? `Backend live · ${lastRefresh.toLocaleTimeString()}` : "Backend offline"}
             </span>
           </div>
-          <div className="my-3 flex items-baseline justify-between">
-            <span className="text-3xl font-bold font-mono text-red-400">78<span className="text-xs text-slate-500">/100</span></span>
-            <AlertTriangle className="text-amber-500" size={24} />
-          </div>
-          <p className="text-[11px] text-slate-400">2 behavioral anomalies detected requiring immediate action.</p>
         </div>
-
-        {/* Process Count */}
-        <Link href="/processes" className="bg-cyber-dark/80 border border-cyber-border hover:border-cyan-500/40 rounded-lg p-5 flex flex-col justify-between shadow-lg transition-colors group">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Live Processes</span>
-            <ArrowUpRight size={14} className="text-slate-500 group-hover:text-cyan-400 transition-colors" />
-          </div>
-          <div className="my-3 flex items-baseline justify-between">
-            <span className="text-3xl font-bold font-mono text-slate-100">{processes.length}</span>
-            <Activity className="text-cyan-400" size={24} />
-          </div>
-          <p className="text-[11px] text-slate-400">
-            <span className="text-amber-400 font-semibold">{suspiciousProcesses.length}</span> flagged suspicious
-          </p>
-        </Link>
-
-        {/* Network Sockets */}
-        <Link href="/network" className="bg-cyber-dark/80 border border-cyber-border hover:border-cyan-500/40 rounded-lg p-5 flex flex-col justify-between shadow-lg transition-colors group">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Network Sockets</span>
-            <ArrowUpRight size={14} className="text-slate-500 group-hover:text-cyan-400 transition-colors" />
-          </div>
-          <div className="my-3 flex items-baseline justify-between">
-            <span className="text-3xl font-bold font-mono text-slate-100">{network.length}</span>
-            <Network className="text-emerald-400" size={24} />
-          </div>
-          <p className="text-[11px] text-slate-400">
-            <span className="text-cyan-400 font-semibold">{externalConnections.length}</span> external remote endpoints
-          </p>
-        </Link>
-
-        {/* Sysmon & IOC Indicators */}
-        <Link href="/threat-intel" className="bg-cyber-dark/80 border border-cyber-border hover:border-cyan-500/40 rounded-lg p-5 flex flex-col justify-between shadow-lg transition-colors group">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Threat Intelligence</span>
-            <ArrowUpRight size={14} className="text-slate-500 group-hover:text-cyan-400 transition-colors" />
-          </div>
-          <div className="my-3 flex items-baseline justify-between">
-            <span className="text-3xl font-bold font-mono text-purple-400">{threatStats.total_iocs || 124}</span>
-            <TerminalSquare className="text-purple-400" size={24} />
-          </div>
-          <p className="text-[11px] text-slate-400">
-            <span className="text-red-400 font-semibold">{threatStats.matched_threats || 2}</span> IOC matches found
-          </p>
-        </Link>
+        <button
+          onClick={load}
+          disabled={loading}
+          className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg border border-cyber-border bg-cyber-surface text-slate-400 hover:text-cyber-accent hover:border-cyber-accent/50 transition-all disabled:opacity-40"
+        >
+          <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
+          Refresh
+        </button>
       </div>
 
-      {/* Main Panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Flagged Detections */}
-        <div className="lg:col-span-2 bg-cyber-dark/80 border border-cyber-border rounded-lg p-5 shadow-lg flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-              <AlertTriangle size={16} className="text-amber-400" />
-              High Priority Endpoint Alerts
-            </h3>
-            <Link href="/security" className="text-xs text-cyber-accent hover:underline flex items-center gap-1">
-              View Security Center <ArrowUpRight size={12} />
+      {/* ── Quick Actions ── */}
+      <div className="bg-cyber-panel border border-cyber-border rounded-xl p-4">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1.5">
+          <Zap size={10} className="text-cyber-accent" /> Quick Actions
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          <QAction href="/processes"    dot="bg-green-400"  label="View Processes"   sublabel="Inspect running procs"   />
+          <QAction href="/network"      dot="bg-blue-400"   label="Network Activity" sublabel="Live connections"         />
+          <QAction href="/security"     dot="bg-red-400"    label="Security Threats" sublabel="Detections & alerts"      />
+          <QAction href="/threat-intel" dot="bg-amber-400"  label="Threat Intel"     sublabel="IOC matching"             />
+          <QAction href="/persistence"  dot="bg-purple-400" label="Persistence"      sublabel="Registry & startup items" />
+          <QAction href="/settings"     dot="bg-slate-400"  label="Settings"         sublabel="Configure system"         />
+        </div>
+      </div>
+
+      {/* ── 6 Stat cards ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <StatCard
+          title="CPU Usage"
+          value={loading ? "…" : `${cpu.toFixed(1)}%`}
+          subtitle={`${cores} logical cores`}
+          icon={<Cpu size={15} className="text-cyan-300" />}
+          iconBg="bg-cyan-900/50"
+          link="/system"
+          trend={cpu > 80 ? "up" : "flat"}
+        />
+        <StatCard
+          title="Memory"
+          value={loading ? "…" : `${ram.toFixed(1)}%`}
+          subtitle={`${ramUsed} / ${ramTotal} GB`}
+          icon={<MemoryStick size={15} className="text-purple-300" />}
+          iconBg="bg-purple-900/50"
+          link="/system"
+          trend={ram > 80 ? "up" : "flat"}
+        />
+        <StatCard
+          title="Disk Usage"
+          value={loading ? "…" : `${disk.toFixed(1)}%`}
+          subtitle={`${diskTotal} GB total`}
+          icon={<HardDrive size={15} className="text-emerald-300" />}
+          iconBg="bg-emerald-900/50"
+          link="/system"
+          trend={disk > 85 ? "up" : "flat"}
+        />
+        <StatCard
+          title="Processes"
+          value={loading ? "…" : procCnt}
+          subtitle="Running on endpoint"
+          icon={<Activity size={15} className="text-blue-300" />}
+          iconBg="bg-blue-900/50"
+          link="/processes"
+          trend="flat"
+        />
+        {/* Accent / highlighted card — matches the orange "Last Config Time" */}
+        <StatCard
+          title="Last Scan Time"
+          value={lastRefresh.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          subtitle={`${lastRefresh.toLocaleDateString("en-GB")}`}
+          icon={<Clock size={15} className="text-white" />}
+          iconBg="bg-white/20"
+          accent
+          trend="flat"
+        />
+        <StatCard
+          title="Active Threats"
+          value="0"
+          subtitle="No detections found"
+          icon={<ShieldAlert size={15} className="text-emerald-300" />}
+          iconBg="bg-emerald-900/50"
+          link="/security"
+          trend="down"
+        />
+      </div>
+
+      {/* ── Middle: System Info + Health Status ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* System Info */}
+        <div className="bg-cyber-panel border border-cyber-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-[13px] font-semibold text-slate-100 flex items-center gap-2">
+              <Monitor size={14} className="text-cyber-accent" /> System Info
+            </h2>
+            <Link href="/system" className="text-[11px] text-cyber-accent hover:underline flex items-center gap-1">
+              Details <ExternalLink size={10} />
             </Link>
           </div>
-
-          <div className="space-y-3">
-            <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg flex items-start justify-between">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-semibold text-red-400 uppercase">Suspicious Process</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-red-900/40 text-red-300">T1059.001</span>
-                </div>
-                <p className="text-xs text-slate-200 mt-1 font-mono">powershell.exe -enc SQBFAFgA... (PID: 4820)</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Base64 encoded payload executed from command-line interface.</p>
-              </div>
-              <span className="text-xs font-mono text-red-400 font-bold">Score 85</span>
-            </div>
-
-            <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg flex items-start justify-between">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-semibold text-red-400 uppercase">Suspicious Outbound Socket</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-red-900/40 text-red-300">T1071.001</span>
-                </div>
-                <p className="text-xs text-slate-200 mt-1 font-mono">192.168.1.105:54321 &rarr; 185.220.101.5:4444</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Active socket to known CobaltStrike C2 IP address.</p>
-              </div>
-              <span className="text-xs font-mono text-red-400 font-bold">Score 90</span>
-            </div>
-
-            <div className="p-3 bg-amber-950/20 border border-amber-900/40 rounded-lg flex items-start justify-between">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-semibold text-amber-400 uppercase">Persistence Added</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-300">T1547.001</span>
-                </div>
-                <p className="text-xs text-slate-200 mt-1 font-mono">Startup Folder: vant_sync.bat</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Batch script placed in Startup folder with no digital signature.</p>
-              </div>
-              <span className="text-xs font-mono text-amber-400 font-bold">Score 70</span>
-            </div>
+          <div className="mt-3">
+            <InfoRow icon={<Monitor     size={12} className="text-blue-400"   />} label="OS"         value={osName}     />
+            <InfoRow icon={<ServerCog   size={12} className="text-purple-400" />} label="Hostname"   value={hostname}   />
+            <InfoRow icon={<Globe       size={12} className="text-cyan-400"   />} label="Local IP"   value={"127.0.0.1"}/>
+            <InfoRow icon={<Cpu         size={12} className="text-amber-400"  />} label="CPU Cores"  value={String(cores)} />
+            <InfoRow icon={<MemoryStick size={12} className="text-emerald-400"/>} label="Total RAM"  value={`${ramTotal} GB`} />
+            <InfoRow icon={<Clock       size={12} className="text-slate-400"  />} label="Boot Time"  value={bootTime}   />
           </div>
+          <button className="mt-3 w-full text-[11px] text-slate-400 border border-cyber-border rounded-lg py-1.5 hover:border-cyber-accent/40 hover:text-cyber-accent transition-all">
+            Details
+          </button>
         </div>
 
-        {/* Live System Posture */}
-        <div className="bg-cyber-dark/80 border border-cyber-border rounded-lg p-5 shadow-lg flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-                <Cpu size={16} className="text-cyber-accent" />
-                Live Endpoint Telemetry
-              </h3>
-              <Link href="/system" className="text-xs text-cyber-accent hover:underline flex items-center gap-1">
-                Details <ArrowUpRight size={12} />
-              </Link>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-xs text-slate-300 mb-1">
-                  <span>CPU Utilization ({systemInfo?.cpu_count || 8} Cores)</span>
-                  <span className="font-mono text-cyan-400">{systemInfo?.cpu_percent || 18.4}%</span>
-                </div>
-                <div className="w-full bg-cyber-surface rounded-full h-2 overflow-hidden border border-cyber-border">
-                  <div 
-                    className="bg-cyan-500 h-2 rounded-full transition-all duration-500" 
-                    style={{ width: `${Math.min(100, systemInfo?.cpu_percent || 18.4)}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs text-slate-300 mb-1">
-                  <span>RAM Usage ({ramUsedGb} GB / {ramTotalGb} GB)</span>
-                  <span className="font-mono text-cyan-400">{systemInfo?.virtual_memory?.percent || 54.2}%</span>
-                </div>
-                <div className="w-full bg-cyber-surface rounded-full h-2 overflow-hidden border border-cyber-border">
-                  <div 
-                    className="bg-purple-500 h-2 rounded-full transition-all duration-500" 
-                    style={{ width: `${Math.min(100, systemInfo?.virtual_memory?.percent || 54.2)}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs text-slate-300 mb-1">
-                  <span>System Disk (C:)</span>
-                  <span className="font-mono text-cyan-400">{systemInfo?.disk_usage?.percent || 62.0}%</span>
-                </div>
-                <div className="w-full bg-cyber-surface rounded-full h-2 overflow-hidden border border-cyber-border">
-                  <div 
-                    className="bg-emerald-500 h-2 rounded-full transition-all duration-500" 
-                    style={{ width: `${Math.min(100, systemInfo?.disk_usage?.percent || 62.0)}%` }}
-                  ></div>
-                </div>
-              </div>
-            </div>
+        {/* Health Status */}
+        <div className="bg-cyber-panel border border-cyber-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-[13px] font-semibold text-slate-100 flex items-center gap-2">
+              <CheckCircle size={14} className="text-emerald-400" /> Health Status
+            </h2>
+            <button onClick={load} className="text-[11px] text-cyber-accent hover:underline flex items-center gap-1">
+              <RefreshCw size={10} /> Refresh
+            </button>
           </div>
-
-          <div className="mt-6 pt-4 border-t border-cyber-border text-[11px] text-slate-400 space-y-1">
-            <div className="flex justify-between">
-              <span>Host:</span>
-              <span className="text-slate-200 font-mono">{systemInfo?.hostname || "VANT-ENDPOINT-01"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>OS:</span>
-              <span className="text-slate-200 font-mono">{systemInfo?.os_name || "Windows 11 Enterprise"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>EDR Sysmon:</span>
-              <span className="text-emerald-400 font-mono font-semibold">Active & Operational</span>
-            </div>
+          <div className="mt-3">
+            <HealthRow
+              icon={<Cpu size={12} className="text-cyan-400" />}
+              label="CPU Load"
+              value={`${cpu.toFixed(2)} ${cpu.toFixed(2)} ${cpu.toFixed(2)}`}
+              dot={cpu < 80 ? "green" : "red"}
+            />
+            <HealthRow
+              icon={<Activity size={12} className="text-purple-400" />}
+              label="Horizon Queue"
+              value="Running"
+              dot="green"
+            />
+            <HealthRow
+              icon={<Wifi size={12} className="text-blue-400" />}
+              label="Backend API"
+              value={online ? "127.0.0.1:8000 reachable" : "unreachable"}
+              dot={online ? "green" : "red"}
+            />
+            <HealthRow
+              icon={<Database size={12} className="text-emerald-400" />}
+              label="Database"
+              value={online ? "Ok" : "Error"}
+              dot={online ? "green" : "red"}
+            />
+            <HealthRow
+              icon={<TerminalSquare size={12} className="text-amber-400" />}
+              label="Sysmon Agent"
+              value={sysmon ? "Active" : "Not detected"}
+              dot={sysmon ? "green" : "amber"}
+            />
           </div>
+          {bootTime !== "—" && (
+            <p className="mt-3 text-[10px] text-slate-500">
+              System uptime since: {bootTime}
+            </p>
+          )}
+          <button className="mt-3 w-full text-[11px] text-slate-400 border border-cyber-border rounded-lg py-1.5 hover:border-cyber-accent/40 hover:text-cyber-accent transition-all">
+            Details
+          </button>
         </div>
       </div>
 
-      {/* Quick Navigation Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Link href="/persistence" className="p-4 bg-cyber-surface/60 border border-cyber-border hover:border-cyan-500/50 rounded-lg transition-all group">
-          <Key className="text-cyan-400 group-hover:scale-110 transition-transform mb-2" size={20} />
-          <h4 className="text-xs font-semibold text-slate-200">Persistence</h4>
-          <p className="text-[11px] text-slate-400 mt-1">Registry, Tasks & Startup</p>
-        </Link>
-        <Link href="/sysmon" className="p-4 bg-cyber-surface/60 border border-cyber-border hover:border-cyan-500/50 rounded-lg transition-all group">
-          <TerminalSquare className="text-purple-400 group-hover:scale-110 transition-transform mb-2" size={20} />
-          <h4 className="text-xs font-semibold text-slate-200">Sysmon Logs</h4>
-          <p className="text-[11px] text-slate-400 mt-1">Deep Windows event trail</p>
-        </Link>
-        <Link href="/threat-intel" className="p-4 bg-cyber-surface/60 border border-cyber-border hover:border-cyan-500/50 rounded-lg transition-all group">
-          <ShieldAlert className="text-amber-400 group-hover:scale-110 transition-transform mb-2" size={20} />
-          <h4 className="text-xs font-semibold text-slate-200">Threat Intel</h4>
-          <p className="text-[11px] text-slate-400 mt-1">IOCs & Signature match</p>
-        </Link>
-        <Link href="/reports" className="p-4 bg-cyber-surface/60 border border-cyber-border hover:border-cyan-500/50 rounded-lg transition-all group">
-          <Database className="text-emerald-400 group-hover:scale-110 transition-transform mb-2" size={20} />
-          <h4 className="text-xs font-semibold text-slate-200">Investigation Reports</h4>
-          <p className="text-[11px] text-slate-400 mt-1">Export JSON & DFIR audit</p>
-        </Link>
+      {/* ── Bottom: Latest Processes + Latest Connections + Quick Stats ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* Latest Processes — mirrors "Latest Devices" */}
+        <div className="bg-cyber-panel border border-cyber-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[13px] font-semibold text-slate-100 flex items-center gap-2">
+              <Activity size={13} className="text-cyan-400" /> Latest Processes
+            </h2>
+            <Link href="/processes" className="text-[11px] text-cyber-accent hover:underline">View All</Link>
+          </div>
+
+          <div className="space-y-1">
+            {loading ? (
+              <p className="text-xs text-slate-500 py-4 text-center">Loading…</p>
+            ) : topProcs.length === 0 ? (
+              <p className="text-xs text-slate-500 py-4 text-center">No process data</p>
+            ) : topProcs.map((p: any, i: number) => (
+              <div key={p.pid ?? i} className="flex items-center justify-between py-2 border-b border-cyber-border/40 last:border-0 hover:bg-cyber-surface/30 rounded px-1 transition-colors">
+                <div className="min-w-0">
+                  <p className="text-[12px] text-slate-200 font-mono truncate max-w-[160px]">{p.name ?? "unknown"}</p>
+                  <p className="text-[10px] text-slate-500">{p.pid ? `PID ${p.pid}` : "—"} &nbsp;·&nbsp; {p.username ?? ""}</p>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                  (p.cpu_percent ?? 0) > 30 ? "bg-red-900/40 text-red-400" : "bg-emerald-900/40 text-emerald-400"
+                }`}>
+                  {(p.cpu_percent ?? 0) > 30 ? "High CPU" : "Running"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Latest Connections — mirrors "Latest Configs" */}
+        <div className="bg-cyber-panel border border-cyber-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[13px] font-semibold text-slate-100 flex items-center gap-2">
+              <Network size={13} className="text-blue-400" /> Latest Connections
+            </h2>
+            <Link href="/network" className="text-[11px] text-cyber-accent hover:underline">View All</Link>
+          </div>
+
+          {loading ? (
+            <p className="text-xs text-slate-500 py-4 text-center">Loading…</p>
+          ) : (
+            <>
+              <div className="space-y-1 mb-3">
+                <div className="flex items-center justify-between text-[10px] text-slate-500 pb-1 border-b border-cyber-border/60">
+                  <span>Remote Address</span>
+                  <div className="flex gap-8">
+                    <span>Status</span>
+                    <span>PID</span>
+                  </div>
+                </div>
+                {topNets.length === 0 ? (
+                  <p className="text-xs text-slate-500 py-4 text-center">No established connections</p>
+                ) : topNets.map((c: any, i: number) => {
+                  const rip   = c.raddr?.ip ?? c.raddr ?? "—";
+                  const rport = c.raddr?.port ?? "";
+                  return (
+                    <div key={i} className="flex items-center justify-between py-1.5 border-b border-cyber-border/30 last:border-0 hover:bg-cyber-surface/30 rounded px-1 transition-colors">
+                      <p className="text-[11px] text-slate-200 font-mono">{rip}{rport ? `:${rport}` : ""}</p>
+                      <div className="flex items-center gap-6 flex-shrink-0">
+                        <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-semibold">
+                          <PulsingDot color="green" /> ESTAB
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono w-12 text-right">{c.pid ?? "—"}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <Link href="/network" className="w-full flex items-center justify-center py-2 text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors">
+                View All Connections
+              </Link>
+            </>
+          )}
+        </div>
+
+        {/* Quick Stats — mirrors "Quick Stats" */}
+        <div className="bg-cyber-panel border border-cyber-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[13px] font-semibold text-slate-100 flex items-center gap-2">
+              <BarChart3 size={13} className="text-purple-400" /> Quick Stats
+            </h2>
+          </div>
+
+          <div className="space-y-0">
+            {[
+              { label: "Backend Uptime",    value: online ? "100.0%"  : "Offline",   ok: online ?? false },
+              { label: "Config Success",    value: "100.0%",                          ok: true },
+              { label: "Running Processes", value: loading ? "…" : String(procCnt), ok: true },
+              { label: "Active Sockets",   value: loading ? "…" : String(netCnt),   ok: true },
+              { label: "Active Threats",   value: "0",                               ok: true },
+              { label: "Total RAM",        value: ramTotal !== "—" ? `${ramTotal} GB` : "—", ok: true },
+            ].map((row) => (
+              <div key={row.label} className="flex items-center justify-between py-2.5 border-b border-cyber-border/50 last:border-0">
+                <span className="text-[12px] text-slate-400">{row.label}</span>
+                <span className={`text-[12px] font-semibold font-mono ${row.ok ? "text-emerald-400" : "text-red-400"}`}>
+                  {row.value}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* nav shortcuts */}
+          <div className="mt-4 pt-3 border-t border-cyber-border/50 space-y-1">
+            {[
+              { href: "/services",     label: "Services",      icon: <ServerCog size={11}      /> },
+              { href: "/users",        label: "Users",         icon: <Users size={11}           /> },
+              { href: "/sysmon",       label: "Sysmon Logs",   icon: <TerminalSquare size={11}  /> },
+              { href: "/reports",      label: "Reports",       icon: <FileText size={11}        /> },
+            ].map(item => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex items-center justify-between text-[11px] px-2 py-1.5 rounded text-slate-400 hover:text-cyber-accent hover:bg-cyber-surface/50 transition-all group"
+              >
+                <span className="flex items-center gap-2 group-hover:text-cyber-accent">
+                  {item.icon}{item.label}
+                </span>
+                <ChevronRight size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+              </Link>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

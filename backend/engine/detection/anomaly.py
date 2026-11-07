@@ -2,6 +2,7 @@ import os
 import re
 from typing import List, Dict, Any
 
+
 SUSPICIOUS_PATHS = [
     r'\temp\\',
     r'\appdata\local\temp\\',

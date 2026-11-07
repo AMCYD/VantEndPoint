@@ -6,72 +6,216 @@
   --color-brand-500: #0ea5e9;
   --color-brand-600: #0284c7;
   --color-brand-900: #0c4a6e;
-  
-  --color-cyber-dark: #050a14;
-  --color-cyber-panel: #0b1326;
-  --color-cyber-surface: #111e38;
-  --color-cyber-border: #1e2d4d;
-  --color-cyber-accent: #00f0ff;
-  --color-cyber-green: #10b981;
-  --color-cyber-yellow: #f59e0b;
-  --color-cyber-red: #ef4444;
-  --color-cyber-purple: #8b5cf6;
-  
+
+  --color-cyber-dark:    #12151e;
+  --color-cyber-panel:   #181c28;
+  --color-cyber-surface: #1f2436;
+  --color-cyber-border:  #2a3349;
+  --color-cyber-accent:  #38bdf8;
+  --color-cyber-green:   #10b981;
+  --color-cyber-yellow:  #f59e0b;
+  --color-cyber-red:     #ef4444;
+  --color-cyber-purple:  #8b5cf6;
+
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
+/* ══════════════════════════════════════════════
+   DARK MODE  (default — html.dark or no class)
+══════════════════════════════════════════════ */
 :root {
-  --background: #050a14;
-  --foreground: #e2e8f0;
+  --bg-app:        #12151e;
+  --bg-panel:      #181c28;
+  --bg-surface:    #1f2436;
+  --bg-hover:      #252c40;
+  --border:        #2a3349;
+  --text-primary:  #dce3ef;
+  --text-secondary:#94a3b8;
+  --text-muted:    #64748b;
+  --accent:        #38bdf8;
+  --input-bg:      #1f2436;
+  --input-text:    #dce3ef;
+  --scrollbar-thumb: #2a3349;
+}
+
+/* ══════════════════════════════════════════════
+   LIGHT MODE  (html.light)
+══════════════════════════════════════════════ */
+html.light {
+  --bg-app:        #f1f5f9;
+  --bg-panel:      #ffffff;
+  --bg-surface:    #e8eef5;
+  --bg-hover:      #dde5f0;
+  --border:        #cbd5e1;
+  --text-primary:  #0f172a;
+  --text-secondary:#475569;
+  --text-muted:    #64748b;
+  --accent:        #0284c7;
+  --input-bg:      #f8fafc;
+  --input-text:    #0f172a;
+  --scrollbar-thumb: #cbd5e1;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: var(--bg-app);
+  color: var(--text-primary);
   font-family: var(--font-sans);
-  margin: 0;
-  padding: 0;
+  margin: 0; padding: 0;
   min-height: 100vh;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: #050a14;
-}
-::-webkit-scrollbar-thumb {
-  background: #1e2d4d;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #00f0ff;
+html.dark body {
+  background-image:
+    radial-gradient(ellipse at 20% 0%,   rgba(56,189,248,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 100%, rgba(139,92,246,0.04) 0%, transparent 60%);
 }
 
-/* AG Grid Cyber Dark Theme Overrides */
+/* ══════════════════════════════════════════════
+   SEMANTIC OVERRIDES — every cyber-* class
+   responds to the CSS variable, not hardcoded
+══════════════════════════════════════════════ */
+.bg-cyber-dark    { background-color: var(--bg-app)     !important; }
+.bg-cyber-panel   { background-color: var(--bg-panel)   !important; }
+.bg-cyber-surface { background-color: var(--bg-surface) !important; }
+.border-cyber-border { border-color: var(--border) !important; }
+.text-cyber-accent   { color: var(--accent) !important; }
+
+/* Opacity variants */
+.bg-cyber-dark\/60  { background-color: color-mix(in srgb, var(--bg-app) 60%, transparent)  !important; }
+.bg-cyber-dark\/80  { background-color: color-mix(in srgb, var(--bg-app) 80%, transparent)  !important; }
+.bg-cyber-dark\/95  { background-color: color-mix(in srgb, var(--bg-app) 95%, transparent)  !important; }
+.bg-cyber-panel\/80 { background-color: color-mix(in srgb, var(--bg-panel) 80%, transparent) !important; }
+.bg-cyber-surface\/30 { background-color: color-mix(in srgb, var(--bg-surface) 30%, transparent) !important; }
+.bg-cyber-surface\/40 { background-color: color-mix(in srgb, var(--bg-surface) 40%, transparent) !important; }
+.bg-cyber-surface\/50 { background-color: color-mix(in srgb, var(--bg-surface) 50%, transparent) !important; }
+.bg-cyber-surface\/60 { background-color: color-mix(in srgb, var(--bg-surface) 60%, transparent) !important; }
+
+/* ══════════════════════════════════════════════
+   LIGHT MODE — comprehensive text / bg overrides
+══════════════════════════════════════════════ */
+html.light .text-slate-100  { color: #0f172a !important; }
+html.light .text-slate-200  { color: #1e293b !important; }
+html.light .text-slate-300  { color: #334155 !important; }
+html.light .text-slate-400  { color: #475569 !important; }
+html.light .text-slate-500  { color: #64748b !important; }
+html.light .text-slate-600  { color: #475569 !important; }
+
+/* Backgrounds that go dark without class override */
+html.light .bg-slate-800    { background-color: #e2e8f0 !important; }
+html.light .bg-slate-900    { background-color: #f1f5f9 !important; }
+html.light .hover\:bg-slate-800:hover { background-color: #dde5f0 !important; }
+
+/* Input fields */
+html.light input,
+html.light textarea,
+html.light select {
+  background-color: var(--input-bg) !important;
+  color: var(--input-text) !important;
+  border-color: var(--border) !important;
+}
+html.light input::placeholder,
+html.light textarea::placeholder { color: #94a3b8 !important; }
+
+/* Sidebar in light mode */
+html.light aside {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+html.light aside .text-slate-300 { color: #334155 !important; }
+html.light aside .text-slate-400 { color: #475569 !important; }
+html.light aside .text-slate-500 { color: #64748b !important; }
+html.light aside .hover\:bg-cyber-surface\/50:hover {
+  background-color: #e8eef5 !important;
+}
+html.light aside .bg-cyber-surface {
+  background-color: #e8eef5 !important;
+}
+
+/* TopBar in light mode */
+html.light header {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Borders on dividers */
+html.light .border-cyber-border\/50 { border-color: rgba(203,213,225,0.6) !important; }
+html.light .border-cyber-border\/60 { border-color: rgba(203,213,225,0.7) !important; }
+html.light .border-cyber-border\/40 { border-color: rgba(203,213,225,0.5) !important; }
+html.light .border-cyber-border\/30 { border-color: rgba(203,213,225,0.4) !important; }
+
+/* Cards / panels with dark backgrounds */
+html.light .bg-red-950\/30   { background-color: rgba(254,226,226,0.5)  !important; }
+html.light .bg-amber-950\/20 { background-color: rgba(255,243,205,0.6)  !important; }
+html.light .bg-amber-950\/30 { background-color: rgba(255,243,205,0.7)  !important; }
+html.light .bg-emerald-950\/50 { background-color: rgba(209,250,229,0.6) !important; }
+html.light .bg-emerald-950\/60 { background-color: rgba(209,250,229,0.7) !important; }
+html.light .bg-red-950\/70   { background-color: rgba(254,226,226,0.8)  !important; }
+html.light .bg-amber-950\/70 { background-color: rgba(255,243,205,0.8)  !important; }
+html.light .bg-cyan-900\/40  { background-color: rgba(207,250,254,0.5)  !important; }
+html.light .bg-cyan-900\/50  { background-color: rgba(207,250,254,0.6)  !important; }
+html.light .bg-blue-900\/40  { background-color: rgba(219,234,254,0.5)  !important; }
+html.light .bg-purple-900\/40{ background-color: rgba(237,233,254,0.5)  !important; }
+html.light .bg-purple-900\/50{ background-color: rgba(237,233,254,0.6)  !important; }
+html.light .bg-emerald-900\/40{ background-color: rgba(209,250,229,0.5) !important; }
+html.light .bg-amber-900\/40 { background-color: rgba(254,243,199,0.5)  !important; }
+html.light .bg-red-900\/40   { background-color: rgba(254,226,226,0.5)  !important; }
+html.light .bg-sky-500\/10   { background-color: rgba(224,242,254,0.6)  !important; }
+html.light .bg-white\/20     { background-color: rgba(255,255,255,0.4)  !important; }
+
+/* Overlay loading/error states */
+html.light .bg-cyber-dark\/80  { background-color: rgba(241,245,249,0.92) !important; }
+html.light .bg-cyber-dark\/95  { background-color: rgba(241,245,249,0.97) !important; }
+
+/* CyberDataGrid toolbar */
+html.light .bg-cyber-dark\/60 { background-color: rgba(241,245,249,0.8) !important; }
+
+/* Buttons that use hover:bg-cyber-surface */
+html.light .hover\:bg-cyber-surface:hover { background-color: #dde5f0 !important; }
+html.light .hover\:bg-cyber-surface\/50:hover { background-color: rgba(221,229,240,0.6) !important; }
+
+/* Modals / overlays background */
+html.light .bg-black\/60 { background-color: rgba(15,23,42,0.4) !important; }
+
+/* Badge text colors that need to stay readable */
+html.light .border-red-800    { border-color: #fca5a5 !important; }
+html.light .border-amber-800  { border-color: #fcd34d !important; }
+html.light .border-emerald-800{ border-color: #6ee7b7 !important; }
+html.light .border-amber-700\/50 { border-color: rgba(251,191,36,0.4) !important; }
+html.light .border-emerald-700 { border-color: #6ee7b7 !important; }
+
+/* ══════════════════════════════════════════════
+   SCROLLBARS
+══════════════════════════════════════════════ */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-app); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ══════════════════════════════════════════════
+   AG GRID — adapts via CSS vars
+══════════════════════════════════════════════ */
 .ag-theme-alpine-dark,
 .ag-theme-alpine,
 .ag-theme-quartz-dark {
-  --ag-background-color: #0b1326;
-  --ag-header-background-color: #050a14;
-  --ag-border-color: #1e2d4d;
-  --ag-row-border-color: #162440;
-  --ag-odd-row-background-color: rgba(255, 255, 255, 0.015);
-  --ag-row-hover-color: rgba(0, 240, 255, 0.07);
-  --ag-header-foreground-color: #94a3b8;
-  --ag-foreground-color: #e2e8f0;
-  --ag-selected-row-background-color: rgba(0, 240, 255, 0.12);
-  --ag-font-family: var(--font-sans);
-  --ag-font-size: 13px;
-  --ag-grid-size: 6px;
-  --ag-header-height: 38px;
-  --ag-row-height: 36px;
+  --ag-background-color:              var(--bg-panel);
+  --ag-header-background-color:       var(--bg-app);
+  --ag-border-color:                  var(--border);
+  --ag-row-border-color:              var(--border);
+  --ag-odd-row-background-color:      transparent;
+  --ag-row-hover-color:               var(--bg-hover);
+  --ag-header-foreground-color:       var(--text-secondary);
+  --ag-foreground-color:              var(--text-primary);
+  --ag-selected-row-background-color: color-mix(in srgb, var(--accent) 15%, transparent);
+  --ag-font-family:                   var(--font-sans);
+  --ag-font-size:                     13px;
+  --ag-grid-size:                     6px;
+  --ag-header-height:                 38px;
+  --ag-row-height:                    36px;
   border-radius: 0.5rem;
   overflow: hidden;
-  border: 1px solid #1e2d4d;
+  border: 1px solid var(--border);
 }
 
 .ag-header-cell-label {
@@ -81,9 +225,12 @@ body {
   font-size: 11px;
 }
 
-/* Glassmorphism utility */
+/* Pagination in light mode */
+html.light .ag-paging-panel { color: var(--text-secondary) !important; }
+
 .glass-panel {
-  background: rgba(11, 19, 38, 0.85);
+  background: rgba(24,28,40,0.85);
   backdrop-filter: blur(12px);
-  border: 1px solid #1e2d4d;
+  border: 1px solid var(--border);
 }
+html.light .glass-panel { background: rgba(255,255,255,0.92); }
